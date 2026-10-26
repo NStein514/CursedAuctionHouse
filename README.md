@@ -1,0 +1,2 @@
+# CursedAuctionHouse
+A Flutter/Dart app for iOS and Android called Cursed Auction House. Where the user is an artifact dealer participating in increasingly dangerous auctions. Every item has a hidden value, secret abilities, and potentially devastating curses. Unique twist: Competing AI bidders have personalities, budgets, and preferences. You learn their behavior to determine when they're bluffing, recognize valuable artifacts, and manipulate bidding wars.
