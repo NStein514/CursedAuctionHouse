@@ -26,6 +26,7 @@ class GameState extends ChangeNotifier {
   late int gold = cfg.startGold;
   int sanity = 100, round = 0, startBid = 20, currentBid = 20, shownEstimate = 0;
   final charms = <Charm>[];
+  int lotsWon = 0, cursesTaken = 0, cursesWarded = 0, peakGold = 0, profit = 0, profilerBonus = 0;
   final log = <String>[];
   final tells = <Bidder, String>{};
   final _ceil = <Bidder, double>{};
@@ -56,6 +57,41 @@ class GameState extends ChangeNotifier {
   }
 
   int _r10(num v) => (v / 10).round() * 10;
+  bool get isFinale => round == maxRounds;
+  bool get shopRound => !ended && (round == 3 || round == 6 || round == 8);
+
+  Artifact _finale() => const Artifact('Crown of Nine Sorrows', Category.jewel, 2400, 1900,
+      Curse('Nine Sorrows', 'Every grief it ever caused, at once.', 5), null, 'The air itself screams.', false);
+
+  /// Black Market purchase. Returns a message to show the player.
+  String buy(ShopItem it) {
+    if (gold < it.price) return 'Not enough gold.';
+    String msg;
+    switch (it.kind) {
+      case 'seer':
+        charms.add(const Charm(CharmType.seer));
+        msg = "Seer's Eye acquired.";
+      case 'ward':
+        charms.add(const Charm(CharmType.ward));
+        msg = 'Ward Sigil acquired.';
+      case 'gilded':
+        charms.add(const Charm(CharmType.gilded));
+        msg = 'Gilded Touch acquired.';
+      case 'rite':
+        sanity = min(100, sanity + 20);
+        msg = 'The rite steadies your mind. +20 sanity.';
+      default: // rumor
+        final c = bidders.where((b) => b.guess != b.persona).toList();
+        if (c.isEmpty) return 'You already know them all.';
+        final b = c[rng.nextInt(c.length)];
+        b.guess = b.persona;
+        msg = 'The informant whispers: ${b.name} is a ${b.persona.label}.';
+    }
+    gold -= it.price;
+    notifyListeners();
+    return msg;
+  }
+
   bool get hasTop => playerTop || topBidder != null;
   String get topName => playerTop ? 'You' : (topBidder?.name ?? 'No one');
   int get minNext => hasTop ? currentBid + max(10, _r10(currentBid * .08)) : startBid;
@@ -72,7 +108,12 @@ class GameState extends ChangeNotifier {
     appraisal = null;
     playerFolded = playerTop = busy = false;
     topBidder = null;
-    final a = lot = makeArtifact(rng, round, cfg);
+    final a = lot = isFinale ? _finale() : makeArtifact(rng, round, cfg);
+    if (isFinale) {
+      for (final b in bidders) {
+        b.budget += 600; // they saved up
+      }
+    }
     shownEstimate = sanity < 40 ? (a.estimate * (.6 + rng.nextDouble() * .8)).round() : a.estimate;
     startBid = max(20, _r10(a.estimate * .25));
     currentBid = startBid;
@@ -81,7 +122,7 @@ class GameState extends ChangeNotifier {
       b.waits = 0;
       _ceil[b] = min(b.budget.toDouble(), _valuation(b, a) * (1 + b.aggression * .25));
     }
-    log.add('Lot $round: ${a.name}. Opening at $startBid🪙.');
+    log.add(isFinale ? 'FINALE: the ${a.name}. Every rival has saved for this. Opening at $startBid🪙.' : 'Lot $round: ${a.name}. Opening at $startBid🪙.');
     notifyListeners();
   }
 
@@ -253,10 +294,12 @@ class GameState extends ChangeNotifier {
       final c = a.curse;
       if (c != null) {
         if (_take(CharmType.ward)) {
+          cursesWarded++;
           notes.add('Ward Sigil shatters, blocking ${c.name}.');
         } else {
           final gl = (c.goldLoss * cfg.curseDamage).round();
           final sl = (c.sanityLoss * cfg.curseDamage).round();
+          cursesTaken++;
           gold -= gl;
           sanity -= sl;
           net -= gl;
@@ -274,6 +317,10 @@ class GameState extends ChangeNotifier {
       w.wins++;
       notes.add('It was worth ${a.trueValue}🪙${a.curse != null ? ' and cursed with ${a.curse!.name}' : ', with no curse'}.');
     }
+    if (winner == 'You') {
+      lotsWon++;
+      profit += net;
+    }
     for (final b in bidders) {
       b.budget += ((120 + rng.nextInt(120)) * cfg.rivalIncome).round();
     }
@@ -286,6 +333,15 @@ class GameState extends ChangeNotifier {
       notes.add('The house whispers. -${cfg.sanityDrain} sanity.');
     }
     sanity = sanity.clamp(0, 100);
+    if (gold > peakGold) peakGold = gold;
+    if (round >= maxRounds && sanity > 0) {
+      final reads = bidders.where((b) => b.guess == b.persona).length;
+      profilerBonus = reads * 100;
+      if (reads > 0) {
+        gold += profilerBonus;
+        notes.add('🔎 Profiler bonus: +$profilerBonus🪙 for $reads correct reads.');
+      }
+    }
     if (sanity <= 0) {
       ended = true;
       endReason = 'Your mind shatters among the whispers.';
@@ -302,3 +358,17 @@ class GameState extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+class ShopItem {
+  final String name, desc, kind;
+  final int price;
+  const ShopItem(this.name, this.desc, this.kind, this.price);
+}
+
+const shopItems = [
+  ShopItem("Seer's Eye", "Read one rival's limit on a lot.", 'seer', 120),
+  ShopItem('Ward Sigil', 'Blocks the next curse. Save it for the finale.', 'ward', 150),
+  ShopItem('Gilded Touch', '+25% on your next resale.', 'gilded', 100),
+  ShopItem('Cleansing Rite', 'Restore 20 sanity.', 'rite', 140),
+  ShopItem("Informant's Rumor", "Learn one rival's true nature.", 'rumor', 150),
+];

@@ -53,6 +53,7 @@ class Bidder {
   int budget;
   bool folded = false, taunted = false;
   int wins = 0, bluffsExposed = 0, waits = 0;
+  Persona? guess; // the player's read on this rival
   final Map<String, List<int>> tellStats = {}; // tell -> [bluffs, total]
   final Map<Category, int> bidsByCat = {};
 
@@ -186,3 +187,19 @@ const diffs = [
       curseChance: 1.5, curseDamage: 2, rivalBudget: 1.5, rivalIncome: 1.4,
       tellBluff: .6, tellFake: .35, masked: .4, auraNoise: .45),
 ];
+
+extension PersonaX on Persona {
+  String get label => name[0].toUpperCase() + name.substring(1);
+  String get desc => switch (this) {
+        Persona.miser => 'Undervalues everything. Folds early.',
+        Persona.gambler => 'Overvalues lots. Aggressive and easy to provoke.',
+        Persona.collector => 'Pays dearly for one category, ignores the rest.',
+        Persona.bluffer => 'Often raises on lots they do not want.',
+        Persona.occultist => 'Pays extra for cursed lots.',
+        Persona.sniper => 'Holds back early, then strikes late.',
+        Persona.expert => 'Values lots almost exactly right.',
+        Persona.spiteful => 'Bids harder when you hold the lead.',
+        Persona.speculator => 'Trusts the public estimate, not the truth.',
+        Persona.whale => 'Deep pockets, erratic valuations, never bluffs.',
+      };
+}
