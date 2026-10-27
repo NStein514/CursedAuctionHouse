@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'hall_screen.dart';
 import 'setup_screen.dart';
-
-void main() => runApp(const CursedApp());
+import 'sfx.dart';
+import 'storage.dart';
 
 const gold = Color(0xFFD4AF37);
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Profile.load();
+  runApp(const CursedApp());
+}
 
 class CursedApp extends StatelessWidget {
   const CursedApp({super.key});
@@ -25,31 +32,61 @@ class CursedApp extends StatelessWidget {
       );
 }
 
-class MenuScreen extends StatelessWidget {
+class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Text('🕯️', style: TextStyle(fontSize: 64)),
-              const SizedBox(height: 12),
-              const Text('CURSED\nAUCTION HOUSE', textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 3, color: gold)),
-              const SizedBox(height: 20),
-              const Text(
-                'Ten lots. Five rivals of your choosing. Every artifact hides a true value, a secret charm, and maybe a curse.\n\n'
-                'Watch their tells. Learn who bluffs. Taunt the proud, drain the rich, and hit your difficulty's target with your sanity intact.',
-                textAlign: TextAlign.center, style: TextStyle(height: 1.5, color: Colors.white70)),
-              const SizedBox(height: 32),
-              FilledButton.icon(
-                icon: const Icon(Icons.gavel),
-                label: const Text('Enter the Auction'),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SetupScreen())),
-              ),
-            ]),
+  State<MenuScreen> createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends State<MenuScreen> {
+  void _go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w)).then((_) => setState(() {}));
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Profile.I;
+    return Scaffold(
+      body: SafeArea(
+        child: Stack(children: [
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(28),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('🕯️', style: TextStyle(fontSize: 64)),
+                const SizedBox(height: 12),
+                const Text('CURSED\nAUCTION HOUSE', textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 3, color: gold)),
+                const SizedBox(height: 20),
+                const Text(
+                  'Every artifact hides a true value, a secret charm, and maybe a curse.\n\n'
+                  'Watch their tells. Learn who bluffs. Taunt the proud, drain the rich, and keep your sanity.',
+                  textAlign: TextAlign.center, style: TextStyle(height: 1.5, color: Colors.white70)),
+                const SizedBox(height: 16),
+                Text('Runs ${p.runs} · Wins ${p.wins} · Best endless ${p.bestEndless} lots',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 24),
+                FilledButton.icon(icon: const Icon(Icons.gavel), label: const Text('Enter the Auction'), onPressed: () => _go(const SetupScreen())),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(icon: const Icon(Icons.emoji_events), label: const Text('Hall of Fame & Unlocks'), onPressed: () => _go(const HallScreen())),
+              ]),
+            ),
           ),
-        ),
-      );
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton(
+              tooltip: 'Sound',
+              icon: Icon(p.sound ? Icons.volume_up : Icons.volume_off),
+              onPressed: () {
+                setState(() {
+                  p.sound = !p.sound;
+                  Sfx.enabled = p.sound;
+                });
+                p.save();
+              },
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 }

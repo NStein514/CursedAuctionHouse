@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dossier_screen.dart';
 import 'main.dart' show gold;
 import 'models.dart';
 import 'state.dart';
-import 'dossier_screen.dart';
+import 'storage.dart';
 
 class AuctionScreen extends StatefulWidget {
   final GameState g;
@@ -15,6 +16,14 @@ class AuctionScreen extends StatefulWidget {
 class _AuctionScreenState extends State<AuctionScreen> {
   GameState get g => widget.g;
   bool _dialogOpen = false;
+
+  static const _loreLines = {
+    Category.relic: ['Dug from a flooded crypt.', 'Its previous owners vanished.', 'Sealed in wax for two centuries.'],
+    Category.weapon: ['Never cleaned, never rusts.', 'Won a war nobody remembers.', 'Hums when drawn.'],
+    Category.tome: ['The ink is still wet.', 'Pages turn without wind.', 'Half the book was torn out.'],
+    Category.jewel: ['Taken from a drowned queen.', 'Always cold to the touch.', 'Three jewelers refused it.'],
+    Category.idol: ['It faces the door. Always.', 'Moved overnight, twice.', 'Carved by no human hand.'],
+  };
 
   @override
   void initState() {
@@ -36,6 +45,13 @@ class _AuctionScreenState extends State<AuctionScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _showResult());
     }
   }
+
+  String _lore(Artifact a) {
+    final l = _loreLines[a.category]!;
+    return l[a.name.hashCode.abs() % l.length];
+  }
+
+  void _toEnd() => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => EndScreen(g: g)));
 
   Future<void> _showResult() async {
     if (!mounted) return;
@@ -62,7 +78,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
     _dialogOpen = false;
     if (!mounted) return;
     if (g.ended) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => EndScreen(g: g)));
+      _toEnd();
     } else {
       if (g.shopRound) await _shop();
       if (!mounted) return;
@@ -81,9 +97,9 @@ class _AuctionScreenState extends State<AuctionScreen> {
           content: SizedBox(
             width: double.maxFinite,
             child: ListView(shrinkWrap: true, children: [
-              Text(g.round == 8 ? 'Last chance before the finale.' : 'A hooded figure offers wares.', style: const TextStyle(color: Colors.white60)),
+              Text(g.round == 8 && !g.endless ? 'Last chance before the finale.' : 'A hooded figure offers wares.', style: const TextStyle(color: Colors.white60)),
               if (note != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(note!, style: const TextStyle(color: Colors.amberAccent))),
-              for (final it in shopItems)
+              for (final it in g.shopStock)
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -99,16 +115,24 @@ class _AuctionScreenState extends State<AuctionScreen> {
     );
   }
 
-  static const _loreLines = {
-    Category.relic: ['Dug from a flooded crypt.', 'Its previous owners vanished.', 'Sealed in wax for two centuries.'],
-    Category.weapon: ['Never cleaned, never rusts.', 'Won a war nobody remembers.', 'Hums when drawn.'],
-    Category.tome: ['The ink is still wet.', 'Pages turn without wind.', 'Half the book was torn out.'],
-    Category.jewel: ['Taken from a drowned queen.', 'Always cold to the touch.', 'Three jewelers refused it.'],
-    Category.idol: ['It faces the door. Always.', 'Moved overnight, twice.', 'Carved by no human hand.'],
-  };
-  String _lore(Artifact a) {
-    final l = _loreLines[a.category]!;
-    return l[a.name.hashCode.abs() % l.length];
+  void _pickRival(String title, bool Function(Bidder) ok, void Function(Bidder) done) {
+    final opts = g.bidders.where(ok).toList();
+    showDialog(
+      context: context,
+      builder: (c) => SimpleDialog(title: Text(title), children: [
+        if (opts.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No valid targets.')),
+        for (final b in opts) SimpleDialogOption(onPressed: () { Navigator.pop(c); done(b); }, child: Text('${b.avatar} ${b.name}')),
+      ]),
+    );
+  }
+
+  void _useCharm(Charm ch) {
+    switch (ch.type) {
+      case CharmType.seer: _pickRival('Read whom?', (b) => !b.folded, g.useSeer);
+      case CharmType.smoke: _pickRival('Smoke out whom?', (b) => !b.folded && b != g.topBidder, g.useSmoke);
+      case CharmType.lantern: g.useLantern();
+      default: break;
+    }
   }
 
   void _charms() {
@@ -116,27 +140,33 @@ class _AuctionScreenState extends State<AuctionScreen> {
       context: context,
       builder: (c) => ListView(padding: const EdgeInsets.all(16), shrinkWrap: true, children: [
         const Text('Charms', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        if (g.charms.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Text('None yet. Win lots that hide charms.')),
+        if (g.charms.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Text('None yet. Win lots that hide charms, or visit the Black Market.')),
         for (final ch in g.charms)
           ListTile(
             title: Text(ch.name),
             subtitle: Text(ch.desc),
-            trailing: ch.type == CharmType.seer && g.result == null
-                ? FilledButton(onPressed: () { Navigator.pop(c); _pickSeer(); }, child: const Text('Use'))
-                : null,
+            trailing: ch.manual && g.canCharm ? FilledButton(onPressed: () { Navigator.pop(c); _useCharm(ch); }, child: const Text('Use')) : null,
           ),
       ]),
     );
   }
 
-  void _pickSeer() {
-    showDialog(
+  Future<void> _retire() async {
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (c) => SimpleDialog(title: const Text('Read whom?'), children: [
-        for (final b in g.bidders.where((b) => !b.folded))
-          SimpleDialogOption(onPressed: () { Navigator.pop(c); g.useSeer(b); }, child: Text('${b.avatar} ${b.name}')),
-      ]),
+      builder: (c) => AlertDialog(
+        title: const Text('Retire?'),
+        content: Text('Bank your fortune. Correct reads pay +100🪙 each (you have ${g.reads}).'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Keep bidding')),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Retire')),
+        ],
+      ),
     );
+    if (ok == true && mounted) {
+      g.retire();
+      if (g.ended) _toEnd();
+    }
   }
 
   @override
@@ -148,26 +178,27 @@ class _AuctionScreenState extends State<AuctionScreen> {
           final op = g.sanity >= 60 ? 0.0 : ((60 - g.sanity) / 60 * .5).clamp(0.0, .5);
           return Scaffold(
             appBar: AppBar(
-              title: Text('Lot ${g.round}/${GameState.maxRounds}'),
-              actions: [IconButton(icon: const Icon(Icons.menu_book), tooltip: 'Dossier', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DossierScreen(g: g))))],
+              title: Text(g.endless ? 'Lot ${g.round} · Endless' : 'Lot ${g.round}/${GameState.maxRounds}'),
+              actions: [
+                if (g.endless) TextButton(onPressed: g.busy || g.result != null ? null : _retire, child: const Text('Retire')),
+                IconButton(icon: const Icon(Icons.menu_book), tooltip: 'Dossier', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DossierScreen(g: g)))),
+              ],
             ),
             body: Stack(children: [
               ListView(padding: const EdgeInsets.all(12), children: [
-              _stats(),
-              const SizedBox(height: 8),
-              _lotCard(a),
-              const SizedBox(height: 8),
-              ...g.bidders.map(_bidderTile),
-              const SizedBox(height: 8),
-              _actions(),
-              const SizedBox(height: 8),
-              for (final l in g.log.reversed.take(6)) Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Text('• $l', style: const TextStyle(fontSize: 12, color: Colors.white60))),
-            ]),
+                _stats(),
+                const SizedBox(height: 8),
+                _lotCard(a),
+                const SizedBox(height: 8),
+                ...g.bidders.map(_bidderTile),
+                const SizedBox(height: 8),
+                _actions(),
+                const SizedBox(height: 8),
+                for (final l in g.log.reversed.take(6)) Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Text('• $l', style: const TextStyle(fontSize: 12, color: Colors.white60))),
+              ]),
               IgnorePointer(
                 child: SizedBox.expand(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(gradient: RadialGradient(colors: [const Color(0x00000000), Color.fromRGBO(120, 0, 0, op)], stops: const [.55, 1.0])),
-                  ),
+                  child: DecoratedBox(decoration: BoxDecoration(gradient: RadialGradient(colors: [const Color(0x00000000), Color.fromRGBO(120, 0, 0, op)], stops: const [.55, 1.0]))),
                 ),
               ),
             ]),
@@ -177,7 +208,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
 
   Widget _stats() => Row(children: [
         Text('🪙 ${g.gold}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: gold)),
-        Text(' / ${g.cfg.goal}', style: const TextStyle(color: Colors.white54)),
+        Text(g.endless ? '  Lots survived ${g.completed}' : ' / ${g.cfg.goal}', style: const TextStyle(color: Colors.white54)),
         const Spacer(),
         const Text('🧠 '),
         SizedBox(width: 90, child: LinearProgressIndicator(value: g.sanity / 100, color: g.sanity < 40 ? Colors.redAccent : Colors.tealAccent)),
@@ -217,9 +248,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
         leading: Text(b.avatar, style: TextStyle(fontSize: 28, color: b.folded ? Colors.white24 : null)),
         title: Text('${b.name}${b.folded ? ' (out)' : ''}${b.taunted ? ' 😡' : ''}'),
         subtitle: Text(tell == null ? 'Purse: ${b.purse}' : 'Purse: ${b.purse} · $tell'),
-        trailing: (!b.folded && !b.taunted && !g.busy && g.result == null)
-            ? TextButton(onPressed: () => g.taunt(b), child: const Text('Taunt'))
-            : null,
+        trailing: (!b.folded && !b.taunted && !g.busy && g.result == null) ? TextButton(onPressed: () => g.taunt(b), child: const Text('Taunt')) : null,
       ),
     );
   }
@@ -232,76 +261,83 @@ class _AuctionScreenState extends State<AuctionScreen> {
             child: FilledButton(onPressed: can && g.bidAmount(p) <= g.gold ? () => g.playerBid(p) : null, child: Text('$t\n${g.bidAmount(p)}🪙', textAlign: TextAlign.center)),
           ),
         );
+    Widget small(String t, VoidCallback? f) => Expanded(child: Padding(padding: const EdgeInsets.all(2), child: OutlinedButton(onPressed: f, child: Text(t))));
     return Column(children: [
       Row(children: [bid(g.hasTop ? 'Raise' : 'Open', 0), bid('+25%', .25), bid('+50%', .5)]),
       Row(children: [
-        Expanded(child: Padding(padding: const EdgeInsets.all(2), child: OutlinedButton(onPressed: g.busy || g.playerFolded || g.result != null ? null : g.playerPass, child: const Text('Pass')))),
-        Expanded(child: Padding(padding: const EdgeInsets.all(2), child: OutlinedButton(onPressed: g.appraised || g.gold < g.cfg.appraiseCost || g.busy || g.result != null ? null : g.appraise, child: Text('Appraise ${g.cfg.appraiseCost}🪙')))),
-        Expanded(child: Padding(padding: const EdgeInsets.all(2), child: OutlinedButton(onPressed: _charms, child: Text('Charms (${g.charms.length})')))),
+        small('Pass', g.busy || g.playerFolded || g.result != null ? null : g.playerPass),
+        small('Appraise ${g.cfg.appraiseCost}🪙', g.appraised || g.gold < g.cfg.appraiseCost || g.busy || g.result != null ? null : g.appraise),
+        small('Charms (${g.charms.length})', _charms),
       ]),
       if (g.busy) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator()),
     ]);
   }
 }
 
-class EndScreen extends StatelessWidget {
+class EndScreen extends StatefulWidget {
   final GameState g;
   const EndScreen({super.key, required this.g});
+  @override
+  State<EndScreen> createState() => _EndScreenState();
+}
 
-  String get grade {
-    if (g.sanity <= 0 || g.gold < 20) return 'F';
-    final r = g.gold / g.cfg.goal;
-    if (r >= 1.3 && g.sanity >= 50) return 'S';
-    if (r >= 1) return 'A';
-    if (r >= .75) return 'B';
-    if (r >= .5) return 'C';
-    return 'D';
+class _EndScreenState extends State<EndScreen> {
+  GameState get g => widget.g;
+  late final List<String> unlocked;
+
+  @override
+  void initState() {
+    super.initState();
+    unlocked = Profile.I.record(g); // saves progress once per run
   }
 
   List<String> get titles {
-    final reads = g.bidders.where((b) => b.guess == b.persona).length;
     final t = <String>[
       if (g.cursesWarded >= 2) '🛡️ Cursebreaker',
       if (g.cursesTaken >= 3) '☠️ Cursed Soul',
-      if (reads >= 4) '🔎 Sharp Eye',
+      if (g.reads >= 4) '🔎 Sharp Eye',
       if (g.profit >= 500) '💰 Bargain Hunter',
       if (g.sanity >= 70) '🧠 Iron Mind',
       if (g.lotsWon <= 2) '👻 Cautious Ghost',
+      if (g.endless && g.completed >= 12) '♾️ Endless Survivor',
     ];
     return t.isEmpty ? ['🕯️ Rookie'] : t;
   }
 
   @override
-  Widget build(BuildContext context) {
-    final reads = g.bidders.where((b) => b.guess == b.persona).length;
-    return Scaffold(
-      body: SafeArea(
-        child: ListView(padding: const EdgeInsets.all(20), children: [
-          Center(child: Text(g.won ? '🏆' : '💀', style: const TextStyle(fontSize: 64))),
-          Text(g.endReason ?? '', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
-          const SizedBox(height: 12),
-          Center(child: Text('Grade $grade', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: gold))),
-          Center(child: Text('${g.cfg.name} · ${g.gold}🪙 / ${g.cfg.goal}🪙 · Sanity ${g.sanity}', style: const TextStyle(color: Colors.white70))),
-          const SizedBox(height: 12),
-          Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [for (final t in titles) Chip(label: Text(t))]),
-          const SizedBox(height: 12),
-          Text('Lots won ${g.lotsWon} · Net profit ${g.profit}🪙 · Curses taken ${g.cursesTaken}, warded ${g.cursesWarded}',
-              textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
-          const SizedBox(height: 16),
-          Text('Your reads: $reads/${g.bidders.length} correct', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          for (final b in g.bidders)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Text(b.avatar, style: const TextStyle(fontSize: 24)),
-              title: Text('${b.name}: ${b.persona.label}'),
-              subtitle: Text(b.persona.desc),
-              trailing: Text(b.guess == null ? '—' : b.guess == b.persona ? '✅' : '❌ ${b.guess!.label}'),
-            ),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('Back to menu')),
-        ]),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: ListView(padding: const EdgeInsets.all(20), children: [
+            Center(child: Text(g.won ? '🏆' : '💀', style: const TextStyle(fontSize: 64))),
+            Text(g.endReason ?? '', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 12),
+            Center(child: Text('Grade ${g.grade}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: gold))),
+            Center(child: Text('${g.endless ? 'Endless' : 'Season'} · ${g.cfg.name} · ${g.gold}🪙${g.endless ? '' : ' / ${g.cfg.goal}🪙'} · Sanity ${g.sanity}', style: const TextStyle(color: Colors.white70))),
+            Center(child: Text('Score ${g.score}', style: const TextStyle(color: gold))),
+            const SizedBox(height: 12),
+            Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [for (final t in titles) Chip(label: Text(t))]),
+            if (unlocked.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Center(child: Text('🔓 Unlocked', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent))),
+              for (final u in unlocked) Center(child: Text(u)),
+            ],
+            const SizedBox(height: 12),
+            Text('Lots won ${g.lotsWon} · Lots played ${g.completed} · Net profit ${g.profit}🪙 · Curses taken ${g.cursesTaken}, warded ${g.cursesWarded}',
+                textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 16),
+            Text('Your reads: ${g.reads}/${g.bidders.length} correct', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            for (final b in g.bidders)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Text(b.avatar, style: const TextStyle(fontSize: 24)),
+                title: Text('${b.name}: ${b.persona.label}'),
+                subtitle: Text(b.persona.desc),
+                trailing: Text(b.guess == null ? '—' : b.guess == b.persona ? '✅' : '❌ ${b.guess!.label}'),
+              ),
+            const SizedBox(height: 16),
+            FilledButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('Back to menu')),
+          ]),
+        ),
+      );
 }

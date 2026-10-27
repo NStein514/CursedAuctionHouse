@@ -9,7 +9,7 @@ extension CategoryX on Category {
 
 enum Persona { miser, gambler, collector, bluffer, occultist, sniper, expert, spiteful, speculator, whale }
 
-enum CharmType { seer, ward, gilded }
+enum CharmType { seer, ward, gilded, smoke, lantern, haggler, mirror }
 
 class Charm {
   final CharmType type;
@@ -18,12 +18,21 @@ class Charm {
         CharmType.seer => "Seer's Eye",
         CharmType.ward => 'Ward Sigil',
         CharmType.gilded => 'Gilded Touch',
+        CharmType.smoke => 'Smoke Bomb',
+        CharmType.lantern => 'Lantern of Truth',
+        CharmType.haggler => "Haggler's Seal",
+        CharmType.mirror => 'Mirror Shard',
       };
   String get desc => switch (type) {
-        CharmType.seer => "Use on a rival: reveals their true limit for this lot.",
+        CharmType.seer => 'Use on a rival: reveals their true limit for this lot.',
         CharmType.ward => 'Automatic: blocks the next curse that would hit you.',
         CharmType.gilded => 'Automatic: +25% on your next resale.',
+        CharmType.smoke => 'Use on a rival: they flee the bidding on this lot.',
+        CharmType.lantern => 'Use on a lot: reveals true value and curse, even masked.',
+        CharmType.haggler => 'Automatic: 20% off your next winning bid.',
+        CharmType.mirror => 'Automatic: halves the next curse you suffer.',
       };
+  bool get manual => type == CharmType.seer || type == CharmType.smoke || type == CharmType.lantern;
 }
 
 class Curse {
@@ -49,7 +58,8 @@ class Bidder {
   final String name, avatar, bluffTell, honestTell, blurb;
   final Persona persona;
   final Category favorite;
-  final double aggression, bluffRate, pride;
+  double aggression, bluffRate;
+  final double pride;
   int budget;
   bool folded = false, taunted = false;
   int wins = 0, bluffsExposed = 0, waits = 0;
@@ -133,7 +143,7 @@ const _curses = [
 const _cursedAura = ['The air hums with unease.', 'Candles gutter nearby.', 'You taste copper.', 'Whispers behind the glass.'];
 const _calmAura = ['It sits quietly under the lamp.', 'A faint scent of lavender.', 'The room feels warm.', 'Nothing stirs.'];
 
-Artifact makeArtifact(Random r, int round, DiffCfg cfg) {
+Artifact makeArtifact(Random r, int round, DiffCfg cfg, List<CharmType> pool) {
   final cat = Category.values[r.nextInt(5)];
   final name = '${_pre[r.nextInt(_pre.length)]} ${_nouns[cat]![r.nextInt(3)]}';
   var base = 150 + r.nextInt(250) + round * 60;
@@ -144,7 +154,7 @@ Artifact makeArtifact(Random r, int round, DiffCfg cfg) {
     curse = Curse(c[0], c[1], sev);
     base = (base * (1 + .15 * sev)).round(); // cursed goods tempt
   }
-  final charm = r.nextDouble() < .3 ? Charm(CharmType.values[r.nextInt(3)]) : null;
+  final charm = r.nextDouble() < .3 ? Charm(pool[r.nextInt(pool.length)]) : null;
   final est = ((base * (.65 + r.nextDouble() * .7)) / 10).round() * 10;
   var aura = (curse != null ? _cursedAura : _calmAura)[r.nextInt(4)];
   if (r.nextDouble() < cfg.auraNoise) aura = (curse != null ? _calmAura : _cursedAura)[r.nextInt(4)];

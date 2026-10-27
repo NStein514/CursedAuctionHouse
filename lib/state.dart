@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'models.dart';
+import 'sfx.dart';
 
 class AuctionResult {
   final Artifact item;
@@ -18,13 +19,34 @@ class _Obs {
   _Obs(this.b, this.tell, this.bluff);
 }
 
+class ShopItem {
+  final String name, desc, kind;
+  final int price;
+  final CharmType? charm;
+  const ShopItem(this.name, this.desc, this.kind, this.price, [this.charm]);
+}
+
+const shopItems = [
+  ShopItem("Seer's Eye", "Read one rival's limit on a lot.", 'charm', 120, CharmType.seer),
+  ShopItem('Ward Sigil', 'Blocks the next curse.', 'charm', 150, CharmType.ward),
+  ShopItem('Gilded Touch', '+25% on your next resale.', 'charm', 100, CharmType.gilded),
+  ShopItem('Smoke Bomb', 'Make one rival flee a lot.', 'charm', 130, CharmType.smoke),
+  ShopItem('Lantern of Truth', 'See a lot true value and curse.', 'charm', 110, CharmType.lantern),
+  ShopItem("Haggler's Seal", '20% off your next win.', 'charm', 120, CharmType.haggler),
+  ShopItem('Mirror Shard', 'Halves the next curse.', 'charm', 140, CharmType.mirror),
+  ShopItem('Cleansing Rite', 'Restore 20 sanity.', 'rite', 140),
+  ShopItem("Informant's Rumor", "Learn one rival's true nature.", 'rumor', 150),
+];
+
 class GameState extends ChangeNotifier {
   static const maxRounds = 10;
   final DiffCfg cfg;
+  final bool endless;
+  final List<CharmType> charmPool;
   final rng = Random();
   late final List<Bidder> bidders;
   late int gold = cfg.startGold;
-  int sanity = 100, round = 0, startBid = 20, currentBid = 20, shownEstimate = 0;
+  int sanity = 100, round = 0, completed = 0, startBid = 20, currentBid = 20, shownEstimate = 0;
   final charms = <Charm>[];
   int lotsWon = 0, cursesTaken = 0, cursesWarded = 0, peakGold = 0, profit = 0, profilerBonus = 0;
   final log = <String>[];
@@ -37,7 +59,7 @@ class GameState extends ChangeNotifier {
   String? appraisal, endReason;
   AuctionResult? result;
 
-  GameState({required this.cfg, required List<int> roster}) {
+  GameState({required this.cfg, required List<int> roster, required this.charmPool, this.endless = false}) {
     final pool = bidderPool(rng);
     bidders = [for (final i in roster) pool[i]];
     for (final b in bidders) {
@@ -56,47 +78,40 @@ class GameState extends ChangeNotifier {
     if (!_disposed) super.notifyListeners();
   }
 
+  // ---------- derived state ----------
   int _r10(num v) => (v / 10).round() * 10;
-  bool get isFinale => round == maxRounds;
-  bool get shopRound => !ended && (round == 3 || round == 6 || round == 8);
-
-  Artifact _finale() => const Artifact('Crown of Nine Sorrows', Category.jewel, 2400, 1900,
-      Curse('Nine Sorrows', 'Every grief it ever caused, at once.', 5), null, 'The air itself screams.', false);
-
-  /// Black Market purchase. Returns a message to show the player.
-  String buy(ShopItem it) {
-    if (gold < it.price) return 'Not enough gold.';
-    String msg;
-    switch (it.kind) {
-      case 'seer':
-        charms.add(const Charm(CharmType.seer));
-        msg = "Seer's Eye acquired.";
-      case 'ward':
-        charms.add(const Charm(CharmType.ward));
-        msg = 'Ward Sigil acquired.';
-      case 'gilded':
-        charms.add(const Charm(CharmType.gilded));
-        msg = 'Gilded Touch acquired.';
-      case 'rite':
-        sanity = min(100, sanity + 20);
-        msg = 'The rite steadies your mind. +20 sanity.';
-      default: // rumor
-        final c = bidders.where((b) => b.guess != b.persona).toList();
-        if (c.isEmpty) return 'You already know them all.';
-        final b = c[rng.nextInt(c.length)];
-        b.guess = b.persona;
-        msg = 'The informant whispers: ${b.name} is a ${b.persona.label}.';
-    }
-    gold -= it.price;
-    notifyListeners();
-    return msg;
-  }
-
   bool get hasTop => playerTop || topBidder != null;
   String get topName => playerTop ? 'You' : (topBidder?.name ?? 'No one');
   int get minNext => hasTop ? currentBid + max(10, _r10(currentBid * .08)) : startBid;
   int bidAmount(double pct) => max(minNext, hasTop ? _r10(currentBid * (1 + pct)) : startBid);
   bool get canAct => !busy && !playerFolded && !playerTop && result == null;
+  bool get canCharm => !busy && !playerFolded && result == null;
+  bool get isFinale => endless ? round % 10 == 0 : round == maxRounds;
+  bool get shopRound => !ended && (endless ? round % 4 == 0 : (round == 3 || round == 6 || round == 8));
+  int get reads => bidders.where((b) => b.guess == b.persona).length;
+  List<ShopItem> get shopStock => [for (final i in shopItems) if (i.charm == null || charmPool.contains(i.charm)) i];
+
+  int get gradeRank {
+    if (endless) return completed >= 25 ? 5 : completed >= 18 ? 4 : completed >= 12 ? 3 : completed >= 7 ? 2 : 1;
+    if (sanity <= 0 || gold < 20) return 0;
+    final r = gold / cfg.goal;
+    if (r >= 1.3 && sanity >= 50) return 5;
+    if (r >= 1) return 4;
+    if (r >= .75) return 3;
+    if (r >= .5) return 2;
+    return 1;
+  }
+
+  String get grade => 'FDCBAS'[gradeRank];
+  int get score => endless ? completed * 100 + max(0, gold) ~/ 2 + sanity * 3 : max(0, gold) + sanity * 5 + (won ? 1000 : 0);
+
+  // ---------- lot setup ----------
+  Artifact _boss() {
+    const names = ['Crown of Nine Sorrows', 'Throne of Ash', 'Chalice of Ruin'];
+    final v = 2400 + max(0, round - 10) * 120;
+    return Artifact(names[((round ~/ 10) - 1).clamp(0, 99) % 3], Category.jewel, v, _r10(v * .8),
+        const Curse('Nine Sorrows', 'Every grief it ever caused, at once.', 5), null, 'The air itself screams.', false);
+  }
 
   void startRound() {
     round++;
@@ -108,7 +123,16 @@ class GameState extends ChangeNotifier {
     appraisal = null;
     playerFolded = playerTop = busy = false;
     topBidder = null;
-    final a = lot = isFinale ? _finale() : makeArtifact(rng, round, cfg);
+    if (endless && round > 1) {
+      for (final b in bidders) {
+        b.budget += 40 + round * 12;
+        if (round % 5 == 0) {
+          b.aggression = min(1.0, b.aggression + .05);
+          b.bluffRate = min(.8, b.bluffRate + .03);
+        }
+      }
+    }
+    final a = lot = isFinale ? _boss() : makeArtifact(rng, round, cfg, charmPool);
     if (isFinale) {
       for (final b in bidders) {
         b.budget += 600; // they saved up
@@ -123,6 +147,7 @@ class GameState extends ChangeNotifier {
       _ceil[b] = min(b.budget.toDouble(), _valuation(b, a) * (1 + b.aggression * .25));
     }
     log.add(isFinale ? 'FINALE: the ${a.name}. Every rival has saved for this. Opening at $startBid🪙.' : 'Lot $round: ${a.name}. Opening at $startBid🪙.');
+    if (endless && round > 1 && round % 5 == 0) log.add('Your rivals grow bolder.');
     notifyListeners();
   }
 
@@ -143,6 +168,7 @@ class GameState extends ChangeNotifier {
     return v;
   }
 
+  // ---------- player actions ----------
   void appraise() {
     if (appraised || gold < cfg.appraiseCost || result != null) return;
     gold -= cfg.appraiseCost;
@@ -152,12 +178,14 @@ class GameState extends ChangeNotifier {
     final c = (a.curse != null && !a.masked) ? 'MALEVOLENT, curse severity ${a.curse!.severity}/5' : 'no curse sensed';
     appraisal = 'Worth about $v🪙; $c.';
     log.add('Appraisal: $appraisal');
+    Sfx.play('charm');
     notifyListeners();
   }
 
   void taunt(Bidder b) {
     if (b.folded || b.taunted || busy || result != null) return;
     b.taunted = true;
+    Sfx.play('taunt');
     log.add('You sneer at ${b.name}. Their pride is wounded.');
     if (rng.nextDouble() < .2) {
       sanity -= 4;
@@ -174,9 +202,62 @@ class GameState extends ChangeNotifier {
   }
 
   void useSeer(Bidder b) {
-    if (!_take(CharmType.seer)) return;
+    if (!canCharm || !_take(CharmType.seer)) return;
     final c = (_ceil[b]! * (.93 + rng.nextDouble() * .14) / 10).round() * 10;
     log.add("Seer's Eye: ${b.name} will go to about $c🪙 on this lot.");
+    Sfx.play('charm');
+    notifyListeners();
+  }
+
+  void useSmoke(Bidder b) {
+    if (!canCharm || b.folded || b == topBidder || !_take(CharmType.smoke)) return;
+    b.folded = true;
+    log.add('Smoke Bomb! ${b.name} stumbles out coughing.');
+    Sfx.play('charm');
+    notifyListeners();
+  }
+
+  void useLantern() {
+    if (!canCharm || !_take(CharmType.lantern)) return;
+    final a = lot!;
+    appraised = true;
+    appraisal = 'LANTERN: worth exactly ${a.trueValue}🪙; ${a.curse != null ? 'CURSED: ${a.curse!.name}, severity ${a.curse!.severity}/5' : 'no curse'}.';
+    log.add(appraisal!);
+    Sfx.play('charm');
+    notifyListeners();
+  }
+
+  /// Black Market purchase. Returns a message to show the player.
+  String buy(ShopItem it) {
+    if (gold < it.price) return 'Not enough gold.';
+    String msg;
+    if (it.charm != null) {
+      final c = Charm(it.charm!);
+      charms.add(c);
+      msg = '${c.name} acquired.';
+    } else if (it.kind == 'rite') {
+      sanity = min(100, sanity + 20);
+      msg = 'The rite steadies your mind. +20 sanity.';
+    } else {
+      final c = bidders.where((b) => b.guess != b.persona).toList();
+      if (c.isEmpty) return 'You already know them all.';
+      final b = c[rng.nextInt(c.length)];
+      b.guess = b.persona;
+      msg = 'The informant whispers: ${b.name} is a ${b.persona.label}.';
+    }
+    gold -= it.price;
+    Sfx.play('coin');
+    notifyListeners();
+    return msg;
+  }
+
+  void retire() {
+    if (busy || result != null || ended) return;
+    profilerBonus = reads * 100;
+    gold += profilerBonus;
+    ended = true;
+    endReason = 'You retire with your fortune.${reads > 0 ? ' Your reads earned +$profilerBonus🪙.' : ''}';
+    Sfx.play('win');
     notifyListeners();
   }
 
@@ -192,6 +273,7 @@ class GameState extends ChangeNotifier {
     playerTop = true;
     topBidder = null;
     log.add('You bid $amt🪙.');
+    Sfx.play('bid');
     await _bidderRound();
   }
 
@@ -202,6 +284,7 @@ class GameState extends ChangeNotifier {
     await _bidderRound();
   }
 
+  // ---------- rival AI ----------
   Future<void> _bidderRound() async {
     busy = true;
     notifyListeners();
@@ -245,6 +328,7 @@ class GameState extends ChangeNotifier {
     } else {
       b.folded = true;
       log.add('${b.name} folds.');
+      if (!playerFolded) Sfx.play('fold');
       return;
     }
     currentBid = next;
@@ -257,9 +341,11 @@ class GameState extends ChangeNotifier {
     final tell = showBluff ? b.bluffTell : b.honestTell;
     tells[b] = tell;
     _obs.add(_Obs(b, tell, bluff));
-    log.add('${b.name} bids $next🪙 and ${tell}.');
+    log.add('${b.name} bids $next🪙 and $tell.');
+    if (!playerFolded) Sfx.play('bid');
   }
 
+  // ---------- resolution ----------
   void _finish() {
     final a = lot!;
     final notes = <String>[];
@@ -276,7 +362,7 @@ class GameState extends ChangeNotifier {
     for (final n in bluffers) {
       notes.add('🎭 $n was bluffing at times. Check your dossier.');
     }
-    var winner = 'Nobody', net = 0;
+    var winner = 'Nobody', net = 0, cursed = false;
     final price = currentBid;
     if (!hasTop) {
       notes.add('No bids. The lot is withdrawn.');
@@ -290,6 +376,12 @@ class GameState extends ChangeNotifier {
       }
       gold += sale;
       net = sale - price;
+      if (_take(CharmType.haggler)) {
+        final d = (price * .2).round();
+        gold += d;
+        net += d;
+        notes.add("Haggler's Seal: $d🪙 off the price.");
+      }
       notes.add('Resold for $sale🪙 (true value ${a.trueValue}🪙).');
       final c = a.curse;
       if (c != null) {
@@ -297,9 +389,15 @@ class GameState extends ChangeNotifier {
           cursesWarded++;
           notes.add('Ward Sigil shatters, blocking ${c.name}.');
         } else {
-          final gl = (c.goldLoss * cfg.curseDamage).round();
-          final sl = (c.sanityLoss * cfg.curseDamage).round();
+          var dmg = cfg.curseDamage;
+          if (_take(CharmType.mirror)) {
+            dmg *= .5;
+            notes.add('Mirror Shard cracks, halving the curse.');
+          }
+          final gl = (c.goldLoss * dmg).round();
+          final sl = (c.sanityLoss * dmg).round();
           cursesTaken++;
+          cursed = true;
           gold -= gl;
           sanity -= sl;
           net -= gl;
@@ -324,18 +422,20 @@ class GameState extends ChangeNotifier {
     for (final b in bidders) {
       b.budget += ((120 + rng.nextInt(120)) * cfg.rivalIncome).round();
     }
-    if (cfg.upkeep > 0) {
-      gold -= cfg.upkeep;
-      notes.add('House fees: -${cfg.upkeep}🪙.');
+    completed++;
+    final fee = cfg.upkeep + (endless ? round * 8 : 0);
+    if (fee > 0) {
+      gold -= fee;
+      notes.add('House fees: -$fee🪙.');
     }
-    if (cfg.sanityDrain > 0) {
-      sanity -= cfg.sanityDrain;
-      notes.add('The house whispers. -${cfg.sanityDrain} sanity.');
+    final drain = cfg.sanityDrain + (endless ? round ~/ 6 : 0);
+    if (drain > 0) {
+      sanity -= drain;
+      notes.add('The house whispers. -$drain sanity.');
     }
     sanity = sanity.clamp(0, 100);
     if (gold > peakGold) peakGold = gold;
-    if (round >= maxRounds && sanity > 0) {
-      final reads = bidders.where((b) => b.guess == b.persona).length;
+    if (!endless && round >= maxRounds && sanity > 0) {
       profilerBonus = reads * 100;
       if (reads > 0) {
         gold += profilerBonus;
@@ -348,27 +448,24 @@ class GameState extends ChangeNotifier {
     } else if (gold < 20) {
       ended = true;
       endReason = 'Bankrupt. The house seizes your ledger.';
-    } else if (round >= maxRounds) {
+    } else if (!endless && round >= maxRounds) {
       ended = true;
       won = gold >= cfg.goal;
       endReason = won ? 'Master dealer! Your name is whispered in every cellar.' : 'The season ends. You fell short of ${cfg.goal}🪙.';
+    }
+    if (ended && !won) {
+      Sfx.play('lose');
+    } else if (cursed) {
+      Sfx.play('curse');
+    } else if (winner == 'You') {
+      Sfx.play('win');
+    } else if (winner == 'Nobody') {
+      Sfx.play('fold');
+    } else {
+      Sfx.play('gavel');
     }
     result = AuctionResult(a, winner, price, net, winner == 'You', notes);
     busy = false;
     notifyListeners();
   }
 }
-
-class ShopItem {
-  final String name, desc, kind;
-  final int price;
-  const ShopItem(this.name, this.desc, this.kind, this.price);
-}
-
-const shopItems = [
-  ShopItem("Seer's Eye", "Read one rival's limit on a lot.", 'seer', 120),
-  ShopItem('Ward Sigil', 'Blocks the next curse. Save it for the finale.', 'ward', 150),
-  ShopItem('Gilded Touch', '+25% on your next resale.', 'gilded', 100),
-  ShopItem('Cleansing Rite', 'Restore 20 sanity.', 'rite', 140),
-  ShopItem("Informant's Rumor", "Learn one rival's true nature.", 'rumor', 150),
-];
