@@ -1,4 +1,4 @@
-# 🕯️ Cursed Auction House
+# Cursed Auction House
 
 A Flutter game for iOS, Android, Windows, macOS, Linux and the web.
 You are an artifact dealer in increasingly dangerous auctions. Every lot hides a true value, maybe a charm, and maybe a curse.
