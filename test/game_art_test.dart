@@ -42,4 +42,53 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     expect(tester.binding.transientCallbackCount, 0);
   });
+
+  testWidgets('rival idles pause offstage, resume, and stop when folded',
+      (tester) async {
+    final rival = bidderPool(Random(1))[2];
+    Widget scene(bool enabled) => MaterialApp(
+            home: Scaffold(
+          body:
+              TickerMode(enabled: enabled, child: RivalPortrait(bidder: rival)),
+        ));
+    await tester.pumpWidget(scene(true));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    await tester.pumpWidget(scene(false));
+    await tester.pumpAndSettle();
+    expect(tester.binding.transientCallbackCount, 0);
+    await tester.pumpWidget(scene(true));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    rival.folded = true;
+    await tester.pumpWidget(scene(true));
+    await tester.pumpAndSettle();
+    expect(tester.binding.transientCallbackCount, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('rival cycle briefly blinks, glances, and returns to neutral',
+      (tester) async {
+    final rival = bidderPool(Random(1)).first;
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+      body: RivalPortrait(bidder: rival),
+    )));
+    double atlasTop() => tester
+        .widget<Positioned>(find.descendant(
+          of: find.byType(RivalPortrait),
+          matching: find.byType(Positioned),
+        ))
+        .top!;
+    expect(atlasTop(), 0);
+    await tester.pump(const Duration(milliseconds: 2750));
+    final blinkTop = atlasTop();
+    expect(blinkTop, lessThan(0));
+    await tester.pump(const Duration(milliseconds: 2050));
+    expect(atlasTop(), lessThan(blinkTop));
+    await tester.pump(const Duration(milliseconds: 1000));
+    expect(atlasTop(), 0);
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
 }

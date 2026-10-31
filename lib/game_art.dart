@@ -55,8 +55,14 @@ class _ArtMotion extends StatefulWidget {
   final Widget child;
   final bool active;
   final double amplitude;
+  final int seed;
+  final Widget Function(BuildContext, double, Widget)? builder;
   const _ArtMotion(
-      {required this.child, this.active = true, this.amplitude = 2});
+      {required this.child,
+      this.active = true,
+      this.amplitude = 2,
+      this.seed = 0,
+      this.builder});
 
   @override
   State<_ArtMotion> createState() => _ArtMotionState();
@@ -65,7 +71,8 @@ class _ArtMotion extends StatefulWidget {
 class _ArtMotionState extends State<_ArtMotion>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 3200));
+      vsync: this, duration: Duration(milliseconds: 6400 + widget.seed * 173));
+  bool _enabled = false;
 
   void _sync() {
     // Keep compatibility with the project's Flutter 3.16 minimum.
@@ -73,6 +80,7 @@ class _ArtMotionState extends State<_ArtMotion>
         !MediaQuery.of(context).disableAnimations &&
         // ignore: deprecated_member_use
         TickerMode.of(context);
+    _enabled = animate;
     if (animate && !_controller.isAnimating) _controller.repeat();
     if (!animate) {
       _controller.stop();
@@ -89,6 +97,7 @@ class _ArtMotionState extends State<_ArtMotion>
   @override
   void didUpdateWidget(covariant _ArtMotion oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _controller.duration = Duration(milliseconds: 6400 + widget.seed * 173);
     _sync();
   }
 
@@ -102,13 +111,17 @@ class _ArtMotionState extends State<_ArtMotion>
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: _controller,
         child: widget.child,
-        builder: (context, child) => Transform.translate(
-          offset: Offset(
-              0,
-              (math.sin(_controller.value * math.pi * 2) * widget.amplitude)
-                  .roundToDouble()),
-          child: child,
-        ),
+        builder: (context, child) {
+          final phase =
+              _enabled ? (_controller.value + widget.seed * .137) % 1 : 0.0;
+          return Transform.translate(
+            offset: Offset(
+                0,
+                (math.sin(phase * math.pi * 4) * widget.amplitude)
+                    .roundToDouble()),
+            child: widget.builder?.call(context, phase, child!) ?? child,
+          );
+        },
       );
 }
 
@@ -149,15 +162,35 @@ class RivalPortrait extends StatelessWidget {
           duration: Duration(milliseconds: reduced ? 0 : 250),
           child: _ArtMotion(
             active: animate && !bidder.folded,
-            amplitude: bidder.taunted
-                ? 2.5
-                : leading
-                    ? 1.8
-                    : .8,
-            child: Padding(
-                padding: const EdgeInsets.all(3),
-                child: _AtlasTile('assets/art/rivals-pixel-v2.png',
-                    bidder.persona.index, 5, 2)),
+            seed: bidder.persona.index,
+            amplitude: 1,
+            builder: (context, phase, child) {
+              // Brief blink, then a longer sideways glance; idle dominates.
+              final frame = phase > .42 && phase < .445
+                  ? 1
+                  : phase > .72 && phase < .82
+                      ? 2
+                      : 0;
+              return Transform.translate(
+                offset: Offset(
+                    bidder.taunted && phase > .85
+                        ? math.sin(phase * math.pi * 48).roundToDouble()
+                        : leading && phase > .55 && phase < .7
+                            ? 1
+                            : 0,
+                    0),
+                child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: _AtlasTile(
+                        frame == 0
+                            ? 'assets/art/rivals-neutral-v3.png'
+                            : 'assets/art/rivals-idle-v3.png',
+                        bidder.persona.index + frame * 10,
+                        5,
+                        6)),
+              );
+            },
+            child: const SizedBox.shrink(),
           ),
         ),
       ),
@@ -183,7 +216,25 @@ class ArtifactDisplay extends StatelessWidget {
                 gradient: RadialGradient(
                     colors: [Color(0x553E827A), Color(0x00212530)])),
             child: _ArtMotion(
-              amplitude: 3,
+              amplitude: artifact.category == Category.idol ? 1 : 2,
+              seed: artifactArtIndex(artifact),
+              builder: (context, phase, child) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Tiny stepped rocking; heavy idols stay planted upright.
+                  Transform.rotate(
+                    angle: artifact.category == Category.idol
+                        ? 0
+                        : (math.sin(phase * math.pi * 2) * 2).round() * .012,
+                    filterQuality: FilterQuality.none,
+                    child: child,
+                  ),
+                  IgnorePointer(
+                      child: CustomPaint(
+                    painter: _ArtifactGlint(phase, artifact.category),
+                  )),
+                ],
+              ),
               child: Padding(
                   padding: const EdgeInsets.all(8),
                   child: _AtlasTile('assets/art/artifacts-pixel-v2.png',
@@ -192,4 +243,33 @@ class ArtifactDisplay extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Sparse pixel highlights are decorative, never indicators of a hidden curse.
+class _ArtifactGlint extends CustomPainter {
+  final double phase;
+  final Category category;
+  const _ArtifactGlint(this.phase, this.category);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (phase < .55 || phase > .68) return;
+    final bright = phase > .59 && phase < .64;
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..color =
+          (category == Category.tome ? Colors.tealAccent : Colors.amberAccent)
+              .withAlpha(bright ? 210 : 100);
+    final x = (size.width * .67).roundToDouble();
+    final y = (size.height * .28).roundToDouble();
+    canvas.drawRect(Rect.fromLTWH(x, y, 2, 2), paint);
+    if (bright) {
+      canvas.drawRect(Rect.fromLTWH(x - 2, y, 6, 2), paint);
+      canvas.drawRect(Rect.fromLTWH(x, y - 2, 2, 6), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArtifactGlint oldDelegate) =>
+      phase != oldDelegate.phase || category != oldDelegate.category;
 }

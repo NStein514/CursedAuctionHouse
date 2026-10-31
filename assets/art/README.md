@@ -1,5 +1,25 @@
 # Generated game art
 
+## Living pixel-art animation
+
+Runtime uses rows 1–2 of `rivals-neutral-v3.png` for open-eyed neutral poses and rows 3–6 of `rivals-idle-v3.png` for blink/glance poses. Both atlases have five columns and six rows. The correction also opened eyes in its blink row, so that row is deliberately unused; the original closed-eye frames are preserved.
+
+The active rival atlas is `rivals-idle-v3.png`: five columns and six rows. Rows 1–2 are neutral, rows 3–4 blink, and rows 5–6 glance; each pair uses the same ten-rival roster order. Rivals spend most of their cycle neutral, blink briefly, and occasionally glance sideways. Breathing uses one-pixel movement. Different durations and phase offsets keep rivals from moving in unison. Public leading/taunted status adds small shifts; folded rivals stop. Reduced motion and disabled TickerMode reset to neutral and stop the ticker.
+
+Artifact artwork remains `artifacts-pixel-v2.png`, with restrained stepped floating, slight rocking (except heavy idols), and a brief decorative pixel glint. Neither pose nor glint depends on hidden values, curses, or bluff state. Selection, dossier and results remain static for readability.
+
+The portrait animation atlas was created with the built-in image_gen tool using `rivals-pixel-v2.png` as the edit target. Original atlases are retained.
+
+### Animation atlas prompt
+
+Use case: identity-preserve. Edit target: the supplied pixel-art rival atlas. Create an animation atlas with EXACTLY FIVE columns and SIX rows, 30 equal SQUARE cells, canvas aspect ratio 5:6. Keep the ten original characters, pixel-art style, colors, costumes, props, face shapes and scale. Each pair of rows repeats the original roster in exactly its original order. Rows 1 and 2: neutral eyes-open idle portraits. Rows 3 and 4: identical portraits with eyes CLOSED in a natural blink (glasses stay, eyelids closed behind them). Rows 5 and 6: identical portraits with a subtle sideways eye glance and tiny head tilt, not a new pose. Every cell same registration: identical head size, shoulder baseline, prop locations and center, no zoom or camera movement between frames. Changes must be extremely small, suitable for swapping frames in a game. Portraits fully contained within cells with generous transparent margin. Character order in odd rows: elderly spectacles man, crowned fan lady, bearded cane man, purple mask lady, candle monk. Even rows: dark-haired owl lady, white-haired loupe professor, stern high collar man, coin rogue girl, wine baron. Crisp chunky pixel art, simple shading, no realism. No text, labels, borders, background or grid lines. True transparent background.
+
+### Targeted atlas correction
+
+undefined
+
+## Previous pixel-art pass
+
 Current artwork uses a simplified pixel-art direction, generated with the built-in image_gen tool (not the API CLI). PNG atlases retain transparency and are bundled by pubspec.yaml.
 
 - rivals-pixel-v2.png: five columns, two rows; row-major order matches Persona.values.

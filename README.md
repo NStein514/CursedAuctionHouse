@@ -115,7 +115,7 @@ Each type's behavior is listed in the in-game field guide.
 
 ## Illustrated rivals and artifacts
 
-The auction now displays ten generated pixel-art rival portraits and sixteen pixel-art artifact illustrations, with stepped idle motion, floating lots, leader and taunt accents, and folded-rival fading. Portraits also appear in rival selection, the Dossier, and end-of-run results. System reduced-motion preferences disable animation.
+The auction now displays ten generated pixel-art rival portraits and sixteen pixel-art artifact illustrations. Rivals breathe, blink, and glance on staggered idle cycles, with small leader and taunt reactions and folded-rival fading. Artifacts float, gently rock, and catch occasional pixel glints; heavy idols stay upright. Portraits also appear in rival selection, the Dossier, and end-of-run results. System reduced-motion preferences disable animation.
 
 Artwork is bundled in `assets/art/`; generation prompts, atlas ordering, and current limitations are documented in `assets/art/README.md`. Animations are Flutter-driven transforms of pixel-style illustrations, rendered without image smoothing. Hidden curses do not affect the artwork. Run `flutter test` to check art loading and reduced-motion behavior alongside the existing smoke tests.
 
