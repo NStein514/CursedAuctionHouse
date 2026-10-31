@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dossier_screen.dart';
+import 'game_art.dart';
 import 'main.dart' show gold;
 import 'models.dart';
 import 'state.dart';
@@ -219,7 +220,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(children: [
-            Text(a.category.emoji, style: const TextStyle(fontSize: 52)),
+            ArtifactDisplay(key: ValueKey(g.round), artifact: a, size: 88),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -245,7 +246,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
       color: b.folded ? Colors.black26 : null,
       child: ListTile(
         dense: true,
-        leading: Text(b.avatar, style: TextStyle(fontSize: 28, color: b.folded ? Colors.white24 : null)),
+        leading: RivalPortrait(bidder: b, leading: top),
         title: Text('${b.name}${b.folded ? ' (out)' : ''}${b.taunted ? ' 😡' : ''}'),
         subtitle: Text(tell == null ? 'Purse: ${b.purse}' : 'Purse: ${b.purse} · $tell'),
         trailing: (!b.folded && !b.taunted && !g.busy && g.result == null) ? TextButton(onPressed: () => g.taunt(b), child: const Text('Taunt')) : null,
@@ -330,7 +331,7 @@ class _EndScreenState extends State<EndScreen> {
               ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                leading: Text(b.avatar, style: const TextStyle(fontSize: 24)),
+                leading: RivalPortrait(bidder: b, animate: false),
                 title: Text('${b.name}: ${b.persona.label}'),
                 subtitle: Text(b.persona.desc),
                 trailing: Text(b.guess == null ? '—' : b.guess == b.persona ? '✅' : '❌ ${b.guess!.label}'),

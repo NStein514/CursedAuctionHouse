@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'auction_screen.dart';
+import 'game_art.dart';
 import 'main.dart' show gold;
 import 'models.dart';
 import 'state.dart';
@@ -88,7 +89,8 @@ class _SetupScreenState extends State<SetupScreen> {
       dense: true,
       value: picked.contains(i),
       onChanged: (!picked.contains(i) && picked.length >= need) ? null : (v) => setState(() => v == true ? picked.add(i) : picked.remove(i)),
-      title: Text('${pool[i].avatar} ${pool[i].name}'),
+      secondary: RivalPortrait(bidder: pool[i], animate: false),
+      title: Text(pool[i].name),
       subtitle: Text(pool[i].blurb),
     );
   }

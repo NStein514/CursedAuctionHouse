@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'models.dart';
+import 'game_art.dart';
 import 'state.dart';
 
 /// Everything you have learned about each rival. Personas are never shown;
@@ -37,7 +38,7 @@ class _DossierScreenState extends State<DossierScreen> {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${b.avatar} ${b.name}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Row(children: [RivalPortrait(bidder: b, animate: false), const SizedBox(width: 12), Expanded(child: Text(b.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))]),
           Text('"${b.blurb}"', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.white54)),
           Text('Purse: ${b.purse} · Wins: ${b.wins} · Bluffs exposed: ${b.bluffsExposed}', style: const TextStyle(color: Colors.white70)),
           Row(children: [
