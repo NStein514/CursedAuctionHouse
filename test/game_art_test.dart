@@ -67,6 +67,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('rival art keeps its cell aspect when a tile box is shorter',
+      (tester) async {
+    // Compact density shrinks ListTile's icon slot below the portrait size.
+    final rival = bidderPool(Random(1)).first;
+    await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(visualDensity: VisualDensity.compact),
+        home: Scaffold(
+      body: ListTile(
+        dense: true,
+        leading: RivalPortrait(bidder: rival, animate: false),
+        title: const Text('Silas'),
+        subtitle: const Text('Purse: Comfortable'),
+      ),
+    )));
+    await tester.pump();
+    final portrait = tester.renderObject<RenderBox>(find.byType(RivalPortrait));
+    expect(portrait.size.height, lessThan(portrait.size.width));
+    final atlas = tester.renderObject<RenderBox>(find.descendant(
+        of: find.byType(RivalPortrait), matching: find.byType(Image)));
+    // Five columns by six square rows: a squashed cell changes this ratio.
+    expect(atlas.size.width / atlas.size.height, closeTo(5 / 6, .001));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('rival cycle briefly blinks, glances, and returns to neutral',
       (tester) async {
     final rival = bidderPool(Random(1)).first;

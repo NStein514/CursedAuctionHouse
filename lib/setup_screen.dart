@@ -86,7 +86,7 @@ class _SetupScreenState extends State<SetupScreen> {
       return ListTile(dense: true, enabled: false, leading: const Text('🔒', style: TextStyle(fontSize: 22)), title: const Text('Locked rival'), subtitle: Text(hint));
     }
     return CheckboxListTile(
-      dense: true,
+      visualDensity: VisualDensity.standard,
       value: picked.contains(i),
       onChanged: (!picked.contains(i) && picked.length >= need) ? null : (v) => setState(() => v == true ? picked.add(i) : picked.remove(i)),
       secondary: RivalPortrait(bidder: pool[i], animate: false),

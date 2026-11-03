@@ -55,8 +55,11 @@ class _AuctionScreenState extends State<AuctionScreen> {
   void _toEnd() => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => EndScreen(g: g)));
 
   Future<void> _showResult() async {
-    if (!mounted) return;
-    final r = g.result!;
+    final r = g.result;
+    if (!mounted || r == null) {
+      _dialogOpen = false;
+      return;
+    }
     if (r.playerWon) {
       r.notes.any((n) => n.contains('CURSE')) ? HapticFeedback.heavyImpact() : HapticFeedback.mediumImpact();
     }
@@ -76,15 +79,17 @@ class _AuctionScreenState extends State<AuctionScreen> {
         actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(g.ended ? 'Finish' : 'Next lot'))],
       ),
     );
-    _dialogOpen = false;
     if (!mounted) return;
     if (g.ended) {
       _toEnd();
-    } else {
-      if (g.shopRound) await _shop();
-      if (!mounted) return;
-      g.startRound();
+      return;
     }
+    // Stay in the result flow across the shop: purchases notify listeners
+    // while this result is still current and must not replay the summary.
+    if (g.shopRound) await _shop();
+    if (!mounted) return;
+    g.startRound();
+    _dialogOpen = false;
   }
 
   Future<void> _shop() async {
@@ -245,7 +250,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: top ? gold : Colors.transparent, width: 2)),
       color: b.folded ? Colors.black26 : null,
       child: ListTile(
-        dense: true,
+        visualDensity: VisualDensity.standard,
         leading: RivalPortrait(bidder: b, leading: top),
         title: Text('${b.name}${b.folded ? ' (out)' : ''}${b.taunted ? ' 😡' : ''}'),
         subtitle: Text(tell == null ? 'Purse: ${b.purse}' : 'Purse: ${b.purse} · $tell'),
@@ -329,7 +334,7 @@ class _EndScreenState extends State<EndScreen> {
             Text('Your reads: ${g.reads}/${g.bidders.length} correct', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             for (final b in g.bidders)
               ListTile(
-                dense: true,
+                visualDensity: VisualDensity.standard,
                 contentPadding: EdgeInsets.zero,
                 leading: RivalPortrait(bidder: b, animate: false),
                 title: Text('${b.name}: ${b.persona.label}'),

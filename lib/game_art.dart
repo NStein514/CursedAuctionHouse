@@ -134,7 +134,7 @@ class RivalPortrait extends StatelessWidget {
       required this.bidder,
       this.leading = false,
       this.animate = true,
-      this.size = 52});
+      this.size = 56});
 
   @override
   Widget build(BuildContext context) {
@@ -181,13 +181,18 @@ class RivalPortrait extends StatelessWidget {
                     0),
                 child: Padding(
                     padding: const EdgeInsets.all(3),
-                    child: _AtlasTile(
-                        frame == 0
-                            ? 'assets/art/rivals-neutral-v3.png'
-                            : 'assets/art/rivals-idle-v3.png',
-                        bidder.persona.index + frame * 10,
-                        5,
-                        6)),
+                    // Keep every rival square even when a parent (such as a
+                    // dense ListTile leading slot) offers a shorter box.
+                    child: Center(
+                        child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _AtlasTile(
+                                frame == 0
+                                    ? 'assets/art/rivals-neutral-v3.png'
+                                    : 'assets/art/rivals-idle-v3.png',
+                                bidder.persona.index + frame * 10,
+                                5,
+                                6)))),
               );
             },
             child: const SizedBox.shrink(),
