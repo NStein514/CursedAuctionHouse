@@ -8,4 +8,5 @@ flutter create --platforms=macos,linux,android,ios,web --org com.example .
 for d in lib test; do [ -d "${d}_backup" ] && rm -rf "$d" && mv "${d}_backup" "$d"; done
 mv pubspec.yaml.bak pubspec.yaml
 flutter pub get
+dart run tool/install_icons.dart
 echo "Done. Run: flutter run -d chrome   (or macos / linux)"

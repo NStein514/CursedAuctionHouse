@@ -5,6 +5,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('taunts show angry art until reset, even without motion',
+      (tester) async {
+    final rivals = bidderPool(Random(1));
+    Widget scene(bool reduced) => MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: reduced),
+            child: Scaffold(
+              body: Wrap(children: [
+                for (final rival in rivals) RivalPortrait(bidder: rival),
+              ]),
+            ),
+          ),
+        );
+    List<String> assets() => tester
+        .widgetList<Image>(find.byType(Image))
+        .map((image) => (image.image as AssetImage).assetName)
+        .toList();
+    await tester.pumpWidget(scene(false));
+    expect(assets(), everyElement('assets/art/rivals-neutral-v3.png'));
+    for (final rival in rivals) {
+      rival.taunted = true;
+    }
+    await tester.pumpWidget(scene(false));
+    await tester.pump(const Duration(seconds: 5));
+    expect(assets(), everyElement('assets/art/rivals-angry-v1.png'));
+    await tester.pumpWidget(scene(true));
+    await tester.pumpAndSettle();
+    expect(assets(), everyElement('assets/art/rivals-angry-v1.png'));
+    for (final rival in rivals) {
+      rival.taunted = false;
+    }
+    await tester.pumpWidget(scene(true));
+    await tester.pumpAndSettle();
+    expect(assets(), everyElement('assets/art/rivals-neutral-v3.png'));
+    expect(tester.takeException(), isNull);
+  });
+
   test('hidden properties cannot change artifact artwork', () {
     const calm = Artifact(
         'Weeping Urn', Category.relic, 200, 180, null, null, 'Quiet', false);
@@ -74,13 +111,13 @@ void main() {
     await tester.pumpWidget(MaterialApp(
         theme: ThemeData(visualDensity: VisualDensity.compact),
         home: Scaffold(
-      body: ListTile(
-        dense: true,
-        leading: RivalPortrait(bidder: rival, animate: false),
-        title: const Text('Silas'),
-        subtitle: const Text('Purse: Comfortable'),
-      ),
-    )));
+          body: ListTile(
+            dense: true,
+            leading: RivalPortrait(bidder: rival, animate: false),
+            title: const Text('Silas'),
+            subtitle: const Text('Purse: Comfortable'),
+          ),
+        )));
     await tester.pump();
     final portrait = tester.renderObject<RenderBox>(find.byType(RivalPortrait));
     expect(portrait.size.height, lessThan(portrait.size.width));

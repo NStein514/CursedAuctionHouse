@@ -119,6 +119,10 @@ The auction now displays ten generated pixel-art rival portraits and sixteen pix
 
 Artwork is bundled in `assets/art/`; generation prompts, atlas ordering, and current limitations are documented in `assets/art/README.md`. Animations are Flutter-driven transforms of pixel-style illustrations, rendered without image smoothing. Hidden curses do not affect the artwork. Run `flutter test` to check art loading and reduced-motion behavior alongside the existing smoke tests.
 
+Taunting now switches each rival to an angry portrait until the next lot resets their taunted status. The expression remains visible with reduced motion enabled; the name no longer carries an angry emoji.
+
+The enchanted eye-gavel app icon also appears on the main menu. Both setup scripts install launcher icons for the platform folders they create using `flutter_launcher_icons`. After changing the artwork, run `dart run tool/install_icons.dart` to regenerate Android, iOS, web, Windows, and macOS icons for existing platform projects. Platform folders are not included in this checkout. Linux desktop packaging can use `assets/art/app-icon-v1.png` as its icon.
+
 ## Ideas for later
 
 Sealed-bid lots, rival-vs-rival grudges, daily seeded challenges, cloud-synced scores, more rival types, and a tutorial lot.

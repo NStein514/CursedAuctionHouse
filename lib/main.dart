@@ -51,7 +51,13 @@ class _MenuScreenState extends State<MenuScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(28),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text('🕯️', style: TextStyle(fontSize: 64)),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset('assets/art/app-icon-v1.png',
+                      width: 112, height: 112,
+                      filterQuality: FilterQuality.none,
+                      semanticLabel: 'Cursed Auction House enchanted gavel'),
+                ),
                 const SizedBox(height: 12),
                 const Text('CURSED\nAUCTION HOUSE', textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 3, color: gold)),

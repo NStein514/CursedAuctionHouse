@@ -252,7 +252,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
       child: ListTile(
         visualDensity: VisualDensity.standard,
         leading: RivalPortrait(bidder: b, leading: top),
-        title: Text('${b.name}${b.folded ? ' (out)' : ''}${b.taunted ? ' 😡' : ''}'),
+        title: Text('${b.name}${b.folded ? ' (out)' : ''}'),
         subtitle: Text(tell == null ? 'Purse: ${b.purse}' : 'Purse: ${b.purse} · $tell'),
         trailing: (!b.folded && !b.taunted && !g.busy && g.result == null) ? TextButton(onPressed: () => g.taunt(b), child: const Text('Taunt')) : null,
       ),

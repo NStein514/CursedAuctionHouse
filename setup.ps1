@@ -11,4 +11,7 @@ flutter create --platforms=windows,android,ios,web --org com.example .
 foreach ($d in @("lib", "test")) { if (Test-Path ".\${d}_backup") { Remove-Item ".\$d" -Recurse -Force; Move-Item ".\${d}_backup" ".\$d" } }
 Move-Item .\pubspec.yaml.bak .\pubspec.yaml -Force
 flutter pub get
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+dart run tool/install_icons.dart
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "Done. Run:  flutter run -d windows   (or -d edge / -d chrome)"

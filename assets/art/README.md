@@ -1,10 +1,33 @@
 # Generated game art
 
+## Taunt expressions and launcher icon
+
+Created with the built-in image_gen tool. Project assets:
+
+- `rivals-angry-v1.png`: transparent five-column, two-row atlas in Persona order. It overrides idle frames while taunted, including when animation is disabled or the rival folds. The next lot restores normal expressions.
+- `app-icon-v1.png`: opaque square enchanted eye-gavel artwork, used on the menu and as the source for platform launcher generation. The handle was corrected after visual review.
+
+### Angry portrait prompt
+
+Use case: identity-preserve. Edit the provided rival portrait atlas into angry expressions. Output exactly FIVE columns and TWO rows of equal SQUARE cells, aspect ratio 5:2, ten portraits. Use ONLY characters in first two rows of reference, same order. Preserve exact character identities, costumes, props, palette, pixel-art style, head sizes and positions within cells. Every character visibly angry: strongly furrowed inward-sloping brows, narrowed open eyes, tense scowling mouths; no smiles. Anger must read at 56px. Do not add emoji, symbols, flames or text. Preserve glasses, masks, beards, fan, candle and other accessories. Fully contained characters, transparent background, no borders. Top row: spectacles man, crown fan woman, bearded cane man, purple masked woman, hooded candle monk. Bottom: owl woman, loupe professor, high collar aristocrat, coin woman, wine baron. Only change expressions.
+
+Reference: `rivals-neutral-v3.png`.
+
+### Icon prompt
+
+Use case: stylized-concept. Create a unique square app icon for Cursed Auction House, matching the reference's chunky gothic pixel-art objects, antique gold outlines, rich plum shadows and oxidized teal highlights. Reference is style only, do not reproduce atlas. One bold enchanted auction gavel, its gold and purple head contains a single luminous teal slit-pupil eye, handle angled down-right, hovering above a small gold auction strike block. A few crisp teal spectral sparks suggest the curse. Opaque deep midnight plum background, subtle stepped halo. Strong simple silhouette readable at 32 pixels, central design inside middle 70% for launcher masking, generous padding. Crisp deliberate pixel clusters, limited palette, polished retro game inventory art, no smooth 3D, no text, no letters, no rounded outer corners, no border. Full-bleed square opaque image.
+
+Reference: `artifacts-pixel-v2.png`.
+
+### Final handle correction prompt
+
+Precise geometry correction only to the gavel handle. Keep head and eye and base and all design identical. The handle still slopes too steeply downward. Rotate the ENTIRE handle and socket counterclockwise about its attachment on the right side of the head by about 20 degrees, so it extends more to the RIGHT, only slightly downward. In this 1254 square composition: attachment remains near (710,490), move handle's far end from (990,800) to about (1080,660). Handle must be straight and its long axis visibly perpendicular to the long cylinder axis of the hammer head. Keep length, purple wrapping, gold trim, jewel pommel, pixel art, exact background and strike block. No other changes.
+
 ## Living pixel-art animation
 
 Runtime uses rows 1–2 of `rivals-neutral-v3.png` for open-eyed neutral poses and rows 3–6 of `rivals-idle-v3.png` for blink/glance poses. Both atlases have five columns and six rows. The correction also opened eyes in its blink row, so that row is deliberately unused; the original closed-eye frames are preserved.
 
-The active rival atlas is `rivals-idle-v3.png`: five columns and six rows. Rows 1–2 are neutral, rows 3–4 blink, and rows 5–6 glance; each pair uses the same ten-rival roster order. Rivals spend most of their cycle neutral, blink briefly, and occasionally glance sideways. Breathing uses one-pixel movement. Different durations and phase offsets keep rivals from moving in unison. Public leading/taunted status adds small shifts; folded rivals stop. Reduced motion and disabled TickerMode reset to neutral and stop the ticker.
+The active rival atlas is `rivals-idle-v3.png`: five columns and six rows. Rows 1–2 are neutral, rows 3–4 blink, and rows 5–6 glance; each pair uses the same ten-rival roster order. Rivals spend most of their cycle neutral, blink briefly, and occasionally glance sideways. Breathing uses one-pixel movement. Different durations and phase offsets keep rivals from moving in unison. Public leading/taunted status adds small shifts; folded rivals stop. Reduced motion and disabled TickerMode stop the ticker; taunted rivals retain their angry expression.
 
 Artifact artwork remains `artifacts-pixel-v2.png`, with restrained stepped floating, slight rocking (except heavy idols), and a brief decorative pixel glint. Neither pose nor glint depends on hidden values, curses, or bluff state. Selection, dossier and results remain static for readability.
 

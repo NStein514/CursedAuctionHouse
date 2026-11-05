@@ -145,7 +145,8 @@ class RivalPortrait extends StatelessWidget {
             ? Colors.amber
             : Colors.blueGrey;
     return Semantics(
-      label: bidder.name,
+      label:
+          '${bidder.name}${bidder.taunted ? ', angry after being taunted' : ''}',
       image: true,
       child: AnimatedContainer(
         duration: Duration(milliseconds: reduced ? 0 : 250),
@@ -187,12 +188,15 @@ class RivalPortrait extends StatelessWidget {
                         child: AspectRatio(
                             aspectRatio: 1,
                             child: _AtlasTile(
-                                frame == 0
-                                    ? 'assets/art/rivals-neutral-v3.png'
-                                    : 'assets/art/rivals-idle-v3.png',
-                                bidder.persona.index + frame * 10,
+                                bidder.taunted
+                                    ? 'assets/art/rivals-angry-v1.png'
+                                    : frame == 0
+                                        ? 'assets/art/rivals-neutral-v3.png'
+                                        : 'assets/art/rivals-idle-v3.png',
+                                bidder.persona.index +
+                                    (bidder.taunted ? 0 : frame * 10),
                                 5,
-                                6)))),
+                                bidder.taunted ? 2 : 6)))),
               );
             },
             child: const SizedBox.shrink(),
